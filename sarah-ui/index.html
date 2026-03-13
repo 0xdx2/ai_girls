@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Girls Desktop</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+  </head>
+  <body>
+    <main class="app-layout">
+
+      <section class="avatar-panel">
+
+        <!-- Topbar: persona name + state -->
+        <div class="avatar-topbar">
+          <span id="personaIcon">🌸</span>
+          <span id="personaName">Assistant</span>
+          <span class="persona-tag" id="costumeTag">Casual</span>
+          <span class="state-badge" id="stateBadge">idle</span>
+          <button class="state-cycle-btn" id="stateCycleBtn" title="切换状态演示 / Demo state">&#x21BB;</button>
+          <button class="topbar-more-btn" id="moreBtn"
+                  title="更多面板" aria-expanded="false" aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5"  r="2"/>
+              <circle cx="12" cy="12" r="2"/>
+              <circle cx="12" cy="19" r="2"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Stage: avatar + all floating overlays -->
+        <div class="avatar-stage" id="avatarStage">
+
+          <!-- ① Manga thought bubble (above avatar head, streams thinking) -->
+          <div class="thought-bubble" id="thoughtBubble" aria-live="polite">
+            <div class="thought-text" id="thoughtText"></div>
+          </div>
+
+          <!-- ② Response stream overlay (top area, transparent, streaming output) -->
+          <div class="response-overlay" id="responseOverlay">
+            <button class="response-clear-btn" id="clearResponseBtn" title="清空响应">✕</button>
+            <div class="response-content" id="response"></div>
+          </div>
+
+          <!-- ③ Token ring + avatar canvas -->
+          <div class="token-ring-wrap" id="tokenRingWrap">
+            <svg class="token-ring" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+              <circle class="token-ring__bg"   cx="150" cy="150" r="140"/>
+              <circle class="token-ring__fill" cx="150" cy="150" r="140" id="tokenRingArc"/>
+            </svg>
+
+            <div id="avatarContainer" class="avatar-container state-Idle">
+              <div id="staticAvatar" class="static-avatar">
+                <div class="avatar-placeholder">
+                  <div class="avatar-glow"></div>
+                  <div class="avatar-silhouette"></div>
+                </div>
+              </div>
+              <canvas id="live2dCanvas" width="280" height="560" style="display:none;"></canvas>
+              <div id="propsOverlay" class="props-overlay"></div>
+              <div id="receiveFlash" class="receive-flash" aria-hidden="true"></div>
+            </div>
+
+            <!-- Quota badge: sits at bottom of ring, shows Copilot Premium used -->
+            <div class="ring-quota-badge" id="ringQuotaBadge" aria-live="polite">
+              <span id="ringQuotaVal">—</span>
+              <span class="ring-quota-sub" id="ringQuotaSubLabel">Premium 已用</span>
+            </div>
+          </div>
+
+          <!-- ④ Todo overlay (left floating card, auto-shows when tasks exist) -->
+          <div class="todo-overlay" id="todoOverlay">
+            <div class="todo-overlay-head">
+              <span class="todo-ol-title">📋 任务</span>
+              <span id="todoProgress" class="todo-progress-badge"></span>
+            </div>
+            <ol id="todoOverlayList" class="todo-list todo-list--compact"></ol>
+          </div>
+
+        </div><!-- /avatar-stage -->
+
+        <!-- Input bar (bottom of avatar panel) -->
+        <div class="input-bar">
+          <div id="demoModeBanner" class="demo-banner" style="display:none">
+            ⚡ 预览模式（无 Tauri 后端）
+          </div>
+
+          <!-- ── Agent mode + Model picker ─────────────────── -->
+          <div class="picker-row" id="pickerRow">
+            <div class="agent-picker" id="agentPickerWrap">
+              <button class="model-btn" id="agentPickerBtn" aria-haspopup="listbox" aria-expanded="false" title="切换 Agent 模式">
+                <span class="agent-mode-icon" id="agentModeIcon">💬</span>
+                <span id="agentModeName">Ask</span>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4,6 8,10 12,6"/></svg>
+              </button>
+              <div class="agent-dropdown" id="agentDropdown" role="listbox" aria-label="选择 Agent 模式"></div>
+            </div>
+            <div class="model-picker" id="modelPickerWrap">
+              <button class="model-btn" id="modelPickerBtn" aria-haspopup="listbox" aria-expanded="false">
+                <span id="modelName">gpt-4o</span>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4,6 8,10 12,6"/></svg>
+              </button>
+              <div class="model-dropdown" id="modelDropdown" role="listbox" aria-label="选择模型"></div>
+            </div>
+          </div>
+
+          <!-- ── Attachment chips ───────────────────────────── -->
+          <div class="attach-chips" id="attachChips" style="display:none" aria-label="已附加文件"></div>
+
+          <div class="input-row">
+            <!-- Mic button + settings arrow -->
+            <div class="mic-group" id="micGroup">
+              <button class="mic-btn" id="micBtn" aria-label="语音输入" title="语音输入">
+                <svg class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="2" width="6" height="12" rx="3"/>
+                  <path d="M5 11a7 7 0 0 0 14 0"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                  <line x1="8"  y1="22" x2="16" y2="22"/>
+                  <line class="mic-slash" x1="2" y1="2" x2="22" y2="22"/>
+                </svg>
+              </button>
+              <button class="mic-arrow-btn" id="micArrowBtn" aria-label="语音设置" title="语音设置">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                      stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4,11 8,6 12,11"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Attach button + hidden file input -->
+            <button class="attach-btn" id="attachBtn" title="附加图片或文件" aria-label="附加文件">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
+            <input type="file" id="fileInput" multiple
+              accept="image/*,.txt,.md,.py,.js,.ts,.rs,.json,.yaml,.yml,.toml,.csv,.html,.css"
+              style="display:none" aria-hidden="true" />
+
+            <!-- Auto-expanding transparent textarea -->
+            <textarea
+              id="prompt"
+              rows="1"
+              placeholder="send msg…(Enter send)"
+              aria-label="输入消息"
+            ></textarea>
+
+            <!-- Status dot -->
+            <span id="statusDot" class="status-dot" title="就绪"></span>
+          </div>
+        </div>
+
+        <!-- Token footer: session usage -->
+        <div class="token-meta" id="tokenMeta">
+          <span class="session-token-label" id="sessionTokenLabel">0 tokens</span>
+          <span class="token-pct" id="tokenPct">0%</span>
+        </div>
+
+        <!-- Hidden aria-live for screen readers / JS status -->
+        <div id="status" class="sr-only" aria-live="polite"></div>
+
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════
+           SIDE PANEL — slides in from right when more clicked
+           ═══════════════════════════════════════════════════════ -->
+      <aside class="side-panel" id="sidePanel" aria-hidden="true">
+
+        <!-- Vertical tab nav on left edge of side panel -->
+        <div class="stab-bar">
+          <button class="stab active" data-stab="todo" title="任务计划">
+            📋<span id="todoCount" class="stab-badge"></span>
+          </button>
+          <button class="stab" data-stab="events"    title="领域事件">📡</button>
+          <button class="stab" data-stab="preflight" title="macOS 预检">🔧</button>
+          <button class="stab" data-stab="skills"    title="技能属性">
+            ⚡<span id="skillsCount" class="stab-badge"></span>
+          </button>
+          <button class="stab" data-stab="code"      title="代码输出">💻</button>
+          <div class="stab-sep"></div>
+          <button class="stab" data-stab="settings"  title="设置">⚙️</button>
+        </div>
+
+        <!-- Panel content area -->
+        <div class="side-content">
+
+          <!-- 任务计划 -->
+          <div class="spanel active" id="spanel-todo">
+            <h2 class="panel-title">📋 任务计划</h2>
+            <ol id="todoList" class="todo-list">
+              <li class="todo-empty">暂无任务</li>
+            </ol>
+          </div>
+
+          <!-- 领域事件 -->
+          <div class="spanel" id="spanel-events">
+            <h2 class="panel-title">📡 领域事件（最近 200 条）</h2>
+            <pre id="events">暂无事件</pre>
+          </div>
+
+          <!-- macOS 预检 -->
+          <div class="spanel" id="spanel-preflight">
+            <h2 class="panel-title">🔧 macOS 预检</h2>
+            <pre id="preflight">等待检测...</pre>
+          </div>
+
+          <!-- Skills 属性板 -->
+          <div class="spanel" id="spanel-skills">
+            <h2 class="panel-title">⚡ Skills</h2>
+            <p class="skills-intro">可用工具与技能</p>
+            <div id="skillsList" class="skills-card-grid">
+              <span class="skills-empty">加载中…</span>
+            </div>
+            <div class="skills-divider"><span>本次调用记录</span></div>
+            <div id="skillsHistory" class="skills-history">
+              <span class="skills-empty">本次会话暂无调用</span>
+            </div>
+          </div>
+
+          <!-- 代码输出 -->
+          <div class="spanel" id="spanel-code">
+            <h2 class="panel-title">
+              💻 代码输出
+              <span id="codeLangBadge" class="badge badge--code"></span>
+            </h2>
+            <pre id="codeOutput" class="code-output">暂无代码</pre>
+          </div>
+
+          <!-- 设置 -->
+          <div class="spanel" id="spanel-settings">
+            <h2 class="panel-title">⚙️ 设置</h2>
+
+            <div class="settings-section">
+              <h3 class="settings-section-title">🔐 macOS 权限</h3>
+              <div class="perm-row">
+                <span class="perm-name">♿ 辅助功能</span>
+                <span class="perm-status unknown" id="perm-accessibility">? 未知</span>
+                <button class="perm-btn" id="btn-perm-accessibility">打开</button>
+              </div>
+              <div class="perm-row">
+                <span class="perm-name">🎤 麦克风</span>
+                <span class="perm-status unknown" id="perm-microphone">? 未知</span>
+                <button class="perm-btn" id="btn-perm-microphone">打开</button>
+              </div>
+              <div class="perm-row">
+                <span class="perm-name">🖥️ 屏幕录制</span>
+                <span class="perm-status unknown" id="perm-screen">? 未知</span>
+                <button class="perm-btn" id="btn-perm-screen">打开</button>
+              </div>
+              <div class="perm-row">
+                <span class="perm-name">🤖 自动化</span>
+                <span class="perm-status unknown" id="perm-automation">? 未知</span>
+                <button class="perm-btn" id="btn-perm-automation">打开</button>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3 class="settings-section-title">🤖 AI 提供商检测</h3>
+              <div id="providerStatus" class="provider-status-grid"></div>
+            </div>
+
+            <div class="settings-section">
+              <h3 class="settings-section-title">🔑 API 密钥</h3>
+              <div class="api-key-row">
+                <label>ANTHROPIC</label>
+                <input type="password" id="input-anthropic" placeholder="sk-ant-..." />
+                <button id="save-anthropic">保存</button>
+              </div>
+              <div class="api-key-row">
+                <label>OPENAI</label>
+                <input type="password" id="input-openai" placeholder="sk-..." />
+                <button id="save-openai">保存</button>
+              </div>
+              <div class="api-key-row">
+                <label>COPILOT</label>
+                <input type="password" id="input-copilot" placeholder="gho_..." />
+                <button id="save-copilot">保存</button>
+              </div>
+              <p class="settings-hint">💡 Copilot token: <code>~/.config/github-copilot/hosts.json</code> 中的 oauth_token</p>
+            </div>
+
+            <div class="settings-section">
+              <h3 class="settings-section-title">🗑 数据</h3>
+              <button id="clearAllBtn" class="clear-all-btn">清空所有日志</button>
+            </div>
+          </div>
+
+        </div><!-- /side-content -->
+      </aside>
+
+      <!-- Voice settings popup (floats above mic group) -->
+      <div class="voice-popup" id="voicePopup" role="dialog" aria-hidden="true" aria-label="语音设置">
+        <div class="voice-popup-head">
+          <span>🎤 语音设置</span>
+          <button class="voice-popup-close" id="closeVoicePopup" aria-label="关闭">✕</button>
+        </div>
+        <div class="perm-row">
+          <span class="perm-name">麦克风权限</span>
+          <span class="perm-status unknown" id="voice-perm-mic">? 未知</span>
+          <button class="perm-btn" id="voice-btn-mic">系统设置</button>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Live2D Cubism 4 SDK (local vendor, PIXI v4 stack; load order is critical) -->
+    <script src="./vendor/pixi.min.js"></script>
+    <script src="./vendor/live2dcubismcore.min.js"></script>
+    <script src="./vendor/live2dcubismframework.js"></script>
+    <script src="./vendor/live2dcubismpixi.js"></script>
+    <script src="./vendor/l2d.js"></script>
+    <script src="./vendor/live2d-adapter.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
+

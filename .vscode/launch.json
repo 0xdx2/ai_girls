@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Tauri: Dev Debug",
+            "type": "lldb",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/sarah-tauri",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=sarah-tauri",
+                    "--package=sarah-tauri"
+                ],
+                "env": {
+                    "TAURI_SKIP_DEVSERVER_CHECK": "true"
+                }
+            },
+            "env": {
+                "RUST_LOG": "debug,sarah_tauri=trace",
+                "RUST_BACKTRACE": "1",
+                "TAURI_SKIP_DEVSERVER_CHECK": "true"
+            },
+            "args": []
+        },
+    ]
+}

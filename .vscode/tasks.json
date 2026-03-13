@@ -1,0 +1,19 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cargo: build desktop-shell-tauri",
+            "type": "shell",
+            "command": "cargo build --package=desktop-shell-tauri --manifest-path=${workspaceFolder}/apps/desktop-shell/src-tauri/Cargo.toml",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": "$rustc"
+        }
+    ]
+}

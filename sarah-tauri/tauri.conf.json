@@ -1,0 +1,54 @@
+{
+  "build": {
+    "withGlobalTauri": true,
+    "beforeBuildCommand": "",
+    "beforeDevCommand": "",
+    "devPath": "../sarah-ui",
+    "distDir": "../sarah-ui"
+  },
+  "package": {
+    "productName": "sarah",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "execute": true,
+        "open": "^(https?://|x-apple\\.systempreferences:)"
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "scope": ["$HOME/*", "$CWD/*", "$RESOURCE/*"]
+      }
+    },
+    "bundle": {
+      "active": true,
+      "identifier": "com.aigirls.sarah",
+      "targets": ["app", "dmg"],
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/256x256.png"
+      ],
+      "macOS": {
+        "minimumSystemVersion": "11.0"
+      }
+    },
+    "security": {
+      "csp": "default-src 'self' tauri: asset: https://asset.localhost; script-src 'self' 'unsafe-eval' tauri: asset: https://asset.localhost https://cdn.jsdelivr.net https://cubism.live2d.com; connect-src 'self' asset: https://asset.localhost https://cdn.jsdelivr.net https://cubism.live2d.com https://api.openai.com https://api.anthropic.com; img-src 'self' data: tauri: asset: blob: https:; style-src 'self' 'unsafe-inline'",
+      "dangerousRemoteDomainIpcAccess": []
+    },
+    "windows": [
+      {
+        "title": "sarah",
+        "width": 350,
+        "height": 760,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  }
+}
