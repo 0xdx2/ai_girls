@@ -1,100 +1,100 @@
 // ── Element references ────────────────────────────────────
 const $ = (id) => document.getElementById(id);
-const statusEl        = $('status');         // sr-only aria-live
-const statusDotEl     = $('statusDot');
-const responseEl      = $('response');       // inside response-overlay
+const statusEl = $('status');         // sr-only aria-live
+const statusDotEl = $('statusDot');
+const responseEl = $('response');       // inside response-overlay
 const responseOverlay = $('responseOverlay');
-const eventsEl        = $('events');
-const preflightEl     = $('preflight');
-const promptEl        = $('prompt');
+const eventsEl = $('events');
+const preflightEl = $('preflight');
+const promptEl = $('prompt');
 const avatarContainer = $('avatarContainer');
-const staticAvatar    = $('staticAvatar');
-const live2dCanvas    = $('live2dCanvas');
-const stateBadge      = $('stateBadge');
-const demoModeBanner  = $('demoModeBanner');
+const staticAvatar = $('staticAvatar');
+const live2dCanvas = $('live2dCanvas');
+const stateBadge = $('stateBadge');
+const demoModeBanner = $('demoModeBanner');
 
 // Persona topbar
-const personaIconEl   = $('personaIcon');
-const personaNameEl   = $('personaName');
-const costumeTagEl    = $('costumeTag');
+const personaIconEl = $('personaIcon');
+const personaNameEl = $('personaName');
+const costumeTagEl = $('costumeTag');
 
 // Token ring (quota) + session meta
-const tokenRingArc        = $('tokenRingArc');
-const tokenPctEl          = $('tokenPct');          // session % — bottom bar
+const tokenRingArc = $('tokenRingArc');
+const tokenPctEl = $('tokenPct');          // session % — bottom bar
 const sessionTokenLabelEl = $('sessionTokenLabel'); // session count — bottom bar
-const ringQuotaValEl      = $('ringQuotaVal');      // quota % — ring overlay
-const ringQuotaSubEl      = $('ringQuotaSubLabel'); // plan label below %
+const ringQuotaValEl = $('ringQuotaVal');      // quota % — ring overlay
+const ringQuotaSubEl = $('ringQuotaSubLabel'); // plan label below %
 
 // Props / flash
-const propsOverlay    = $('propsOverlay');
-const receiveFlash    = $('receiveFlash');
+const propsOverlay = $('propsOverlay');
+const receiveFlash = $('receiveFlash');
 
 // Thought bubble (replaces thinkingStream panel)
-const thoughtBubble   = $('thoughtBubble');
-const thoughtTextEl   = $('thoughtText');
+const thoughtBubble = $('thoughtBubble');
+const thoughtTextEl = $('thoughtText');
 
 // Todo
-const todoListEl      = $('todoList');       // side panel full list
-const todoOverlayEl   = $('todoOverlay');
+const todoListEl = $('todoList');       // side panel full list
+const todoOverlayEl = $('todoOverlay');
 const todoOverlayListEl = $('todoOverlayList');
-const todoCountEl     = $('todoCount');      // stab badge
-const todoProgressEl  = $('todoProgress');  // overlay head badge
+const todoCountEl = $('todoCount');      // stab badge
+const todoProgressEl = $('todoProgress');  // overlay head badge
 
 // Side panel
-const sidePanelEl     = $('sidePanel');
-const moreBtn         = $('moreBtn');
+const sidePanelEl = $('sidePanel');
+const moreBtn = $('moreBtn');
 
 // Mic / voice popup
-const micBtn          = $('micBtn');
-const micArrowBtn     = $('micArrowBtn');
-const voicePopup      = $('voicePopup');
+const micBtn = $('micBtn');
+const micArrowBtn = $('micArrowBtn');
+const voicePopup = $('voicePopup');
 
 // Skills / code
-const skillsListEl    = $('skillsList');
-const skillsCountEl   = $('skillsCount');
-const codeOutputEl    = $('codeOutput');
+const skillsListEl = $('skillsList');
+const skillsCountEl = $('skillsCount');
+const codeOutputEl = $('codeOutput');
 const codeLangBadgeEl = $('codeLangBadge');
 
 // ── State ─────────────────────────────────────────────────
 let live2dModel = null;  // kept for backward-compat; model is now owned by live2dAdapter
-let micMuted    = false;
+let micMuted = false;
 
 // _demoStateIdx — see cycle setup below (after ACTIVITY_LABELS + triggerLive2DMotion)
 let _demoStateIdx = 0;
 let thoughtHideTimer = null;
 const TOKEN_BUDGET = 10000;
 const TOKEN_RING_C = 2 * Math.PI * 140;
-const activeProps  = new Map();
-const skillsMap    = new Map();
-const todos        = [];
+const activeProps = new Map();
+const skillsMap = new Map();
+const todos = [];
 
 // ── New: model / agent / attachment state ─────────────────
-let selectedModel   = 'gpt-4o';
-let selectedAgent   = 'ask';
-const attachments   = [];   // {id, name, type, isImage, content, dataUrl?}
-let quotaMode       = false; // true when ring shows copilot quota remaining
+let selectedModel = 'gpt-4o';
+let selectedAgent = 'ask';
+const attachments = [];   // {id, name, type, isImage, content, dataUrl?}
+let quotaMode = false; // true when ring shows copilot quota remaining
 
 const ACTIVITY_LABELS = {
-  Idle:          '💤 待机',
+  Idle: '💤 待机',
   ThinkingLight: '🤔 思考中',
-  ThinkingDeep:  '🧠 深度推理',
-  Planning:      '📋 制定计划',
-  TodoProgress:  '✅ 执行步骤',
-  UsingTool:     '🔧 调用工具',
+  ThinkingDeep: '🧠 深度推理',
+  Planning: '📋 制定计划',
+  TodoProgress: '✅ 执行步骤',
+  UsingTool: '🔧 调用工具',
   InvokingSkill: '⚡ 调用技能',
-  GeneratingCode:'💻 生成代码',
-  Speaking:      '🗣️ 回答中',
-  Celebrating:   '🎉 完成',
+  GeneratingCode: '💻 生成代码',
+  Speaking: '🗣️ 回答中',
+  Celebrating: '🎉 完成',
 };
 
 const TOOL_ICON = {
-  terminal:   '⌨️',
-  browser:    '🌐',
+  terminal: '⌨️',
+  browser: '🌐',
   filesystem: '📁',
-  search:     '🔍',
-  code:       '💻',
-  mcp:        '🔮',
-  system:     '🧩',
+  search: '🔍',
+  code: '💻',
+  mcp: '🔮',
+  system: '🧩',
 };
 
 // ─────────────────────────────────────────────────────────
@@ -228,9 +228,9 @@ function appendResponseChunk(text) {
  */
 function _updateRing(fraction) {
   if (!tokenRingArc) return;
-  const clamped    = Math.max(0, Math.min(1, fraction));
+  const clamped = Math.max(0, Math.min(1, fraction));
   const dashOffset = TOKEN_RING_C * (1 - clamped);
-  tokenRingArc.style.strokeDasharray  = String(TOKEN_RING_C);
+  tokenRingArc.style.strokeDasharray = String(TOKEN_RING_C);
   tokenRingArc.style.strokeDashoffset = String(dashOffset);
   // Green = low usage (good), yellow = halfway, red = nearly exhausted
   tokenRingArc.style.stroke = clamped < 0.5 ? '#64dc78' : clamped < 0.8 ? '#ffd250' : '#ff7d91';
@@ -242,14 +242,14 @@ function _updateRing(fraction) {
  */
 function setTokenUsage(totalTokens) {
   const ratio = Math.min(1, totalTokens / TOKEN_BUDGET);
-  const pct   = Math.round(ratio * 100);
+  const pct = Math.round(ratio * 100);
   if (sessionTokenLabelEl) sessionTokenLabelEl.textContent = `${totalTokens.toLocaleString()} tokens`;
   if (tokenPctEl) {
     tokenPctEl.textContent = `${pct}%`;
     // Color-code % by usage intensity
     tokenPctEl.style.color = pct > 80 ? 'var(--danger)' : pct > 50 ? '#ffd250' : '';
   }
-  if (avatarContainer)     avatarContainer.style.opacity   = `${(1 - ratio * 0.4).toFixed(2)}`;
+  if (avatarContainer) avatarContainer.style.opacity = `${(1 - ratio * 0.4).toFixed(2)}`;
   // Fallback: show session usage on ring only if quota hasn't been fetched yet
   if (!quotaMode) _updateRing(ratio);
 }
@@ -261,44 +261,123 @@ function setTokenUsage(totalTokens) {
  * Ring shows USED fraction so the arc grows as quota is consumed.
  * If premium_unlimited === true, shows ∞ and fills ring to 0 (all remaining).
  */
+// Cached raw quota — used to render the hover detail popup.
+let _lastCq = null;
+
+function _renderQuotaDetailPopup(cq) {
+  const el = document.getElementById('quotaDetailPopup');
+  if (!el || !cq) return;
+
+  const toNum = (v) => (v == null ? null : Number(v));
+  const fmtPct = (v) => (v == null || Number.isNaN(v) ? '—' : `${Math.round(v)}%`);
+  const fmtNum = (v) => (v == null || Number.isNaN(v) ? '—' : String(Math.round(v)));
+
+  const premPct = toNum(cq.premium_percent_remaining);
+  const chatPct = toNum(cq.chat_percent_remaining);
+  const rem = toNum(cq.premium_remaining);
+  const ent = toNum(cq.premium_entitlement);
+  const plan = cq.plan ? String(cq.plan).replace(/_/g, ' ') : '—';
+  const unlimited = cq.premium_unlimited === true;
+
+  const color = (pct) => {
+    if (pct == null) return 'var(--muted)';
+    const used = 100 - pct;
+    return used < 50 ? '#64dc78' : used < 80 ? '#ffd250' : '#ff7d91';
+  };
+
+  const rows = [
+    { label: 'Plan', value: plan, clr: 'var(--text)' },
+    { label: 'Unlimited', value: unlimited ? '✅ Yes' : '❌ No', clr: unlimited ? '#64dc78' : 'var(--muted)' },
+    { label: 'Premium remaining', value: unlimited ? '∞' : fmtPct(premPct), clr: color(premPct) },
+    { label: 'Premium used', value: unlimited ? '0%' : fmtPct(premPct != null ? 100 - premPct : null), clr: 'var(--text)' },
+    {
+      label: 'Quota (abs)', value: (rem != null && ent != null && !Number.isNaN(rem) && !Number.isNaN(ent))
+        ? `${fmtNum(rem)} / ${fmtNum(ent)}` : '—', clr: 'var(--text)'
+    },
+    { label: 'Chat remaining', value: fmtPct(chatPct), clr: color(chatPct) },
+  ];
+
+  el.innerHTML = rows.map((r) =>
+    `<div class="quota-row">
+       <span class="quota-row-label">${r.label}</span>
+       <span class="quota-row-value" style="color:${r.clr}">${r.value}</span>
+     </div>`
+  ).join('');
+}
+
 function setCopilotQuota(cq) {
   if (!cq) return;
   quotaMode = true;
 
+  // Coerce values — backend may return strings instead of numbers
+  const toNum = (v) => (v === undefined || v === null ? null : Number(v));
+
   const isUnlimited = cq.premium_unlimited === true;
-  const pctRemaining = typeof cq.premium_percent_remaining === 'number'
-    ? Math.max(0, Math.min(100, cq.premium_percent_remaining))
-    : null;
+
+  // Prefer premium quota; fall back to chat quota when premium is absent
+  const rawPremPct = toNum(cq.premium_percent_remaining);
+  const rawChatPct = toNum(cq.chat_percent_remaining);
+  const pctRemaining = rawPremPct !== null && !Number.isNaN(rawPremPct)
+    ? Math.max(0, Math.min(100, rawPremPct))
+    : rawChatPct !== null && !Number.isNaN(rawChatPct)
+      ? Math.max(0, Math.min(100, rawChatPct))
+      : null;
+
+  const remaining = toNum(cq.premium_remaining);
+  const entitlement = toNum(cq.premium_entitlement);
 
   // Ring arc: used fraction (0 = nothing used, 1 = exhausted)
   const usedFraction = isUnlimited ? 0 : pctRemaining !== null ? (100 - pctRemaining) / 100 : 0;
   _updateRing(usedFraction);
 
+  // Main quota value displayed in badge
   if (ringQuotaValEl) {
     if (isUnlimited) {
       ringQuotaValEl.textContent = '∞';
       ringQuotaValEl.style.color = '#64dc78';
     } else if (pctRemaining !== null) {
-      ringQuotaValEl.textContent = `${Math.round(100 - pctRemaining)}%`;
+      const usedPct = Math.round(100 - pctRemaining);
+      // Show "remaining / total" when available, otherwise show used%
+      if (remaining !== null && entitlement !== null && !Number.isNaN(remaining) && !Number.isNaN(entitlement)) {
+        ringQuotaValEl.textContent = `${remaining}/${entitlement}`;
+      } else {
+        ringQuotaValEl.textContent = `${usedPct}%`;
+      }
       ringQuotaValEl.style.color = usedFraction < 0.5 ? '#64dc78' : usedFraction < 0.8 ? '#ffd250' : '#ff7d91';
+    } else {
+      // No quota info at all — show placeholder
+      ringQuotaValEl.textContent = '—';
+      ringQuotaValEl.style.color = '';
     }
   }
 
-  // Sub-label: show plan name if known
-  const planLabel = cq.plan ? cq.plan.replace(/_/g, ' ') : 'Premium 已用';
+  // Sub-label: plan name + used% side by side for quick glance
+  const planRaw = cq.plan ? String(cq.plan).replace(/_/g, ' ') : '';
+  const pctSuffix = !isUnlimited && pctRemaining !== null
+    ? `${Math.round(100 - pctRemaining)}% used`
+    : '';
+  const planLabel = [planRaw, pctSuffix].filter(Boolean).join(' · ') || 'Premium 已用';
   const subEl = ringQuotaSubEl || document.querySelector('.ring-quota-sub');
   if (subEl) subEl.textContent = planLabel;
 
-  // Tooltip: show absolute remaining / entitlement
+  // Tooltip with full detail for hover inspection
   const badgeEl = document.getElementById('ringQuotaBadge');
   if (badgeEl) {
-    const abs = (typeof cq.premium_remaining === 'number' && typeof cq.premium_entitlement === 'number')
-      ? `${cq.premium_remaining} / ${cq.premium_entitlement} remaining`
-      : null;
-    badgeEl.title = [isUnlimited ? 'Unlimited' : null, abs, planLabel].filter(Boolean).join(' · ');
+    const absParts = [];
+    if (isUnlimited) absParts.push('Unlimited');
+    if (remaining !== null && !Number.isNaN(remaining) &&
+      entitlement !== null && !Number.isNaN(entitlement))
+      absParts.push(`${remaining} / ${entitlement} remaining`);
+    if (pctRemaining !== null) absParts.push(`${Math.round(pctRemaining)}% left`);
+    if (planRaw) absParts.push(planRaw);
+    badgeEl.title = absParts.join(' · ') || 'Quota unavailable';
   }
 
   if (avatarContainer) avatarContainer.style.opacity = '1';
+
+  // Cache and render the hover detail popup
+  _lastCq = cq;
+  _renderQuotaDetailPopup(cq);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -418,12 +497,12 @@ function _saveHiddenModels(set) {
 }
 
 // allModels kept so we can re-render after show/hide toggle
-let _allModels  = [];
+let _allModels = [];
 let _hiddenModels = _loadHiddenModels();
 
 function _renderModelDropdown(dropdown, models) {
-  const shown  = models.filter((m) => !_hiddenModels.has(m.id));
-  const hidden = models.filter((m) =>  _hiddenModels.has(m.id));
+  const shown = models.filter((m) => !_hiddenModels.has(m.id));
+  const hidden = models.filter((m) => _hiddenModels.has(m.id));
 
   // Optionally group by "group" field
   const grouped = shown.reduce((acc, m) => {
@@ -455,7 +534,7 @@ function _renderModelDropdown(dropdown, models) {
                🙈 ${hidden.length} 个已隐藏
              </div>
              <div id="modelHiddenList" style="display:none">` +
-             hidden.map((m) => `
+      hidden.map((m) => `
                <div class="model-option model-option--hidden"
                     data-id="${m.id}" data-provider="${m.provider}" role="option"
                     aria-selected="${m.id === selectedModel}">
@@ -464,7 +543,7 @@ function _renderModelDropdown(dropdown, models) {
                  </div>
                  <button class="model-hide-btn model-show-btn" data-show-id="${m.id}" title="重新显示 ${m.name}" aria-label="显示 ${m.name}">👁</button>
                </div>`).join('') +
-             '</div>';
+      '</div>';
   }
 
   dropdown.innerHTML = html;
@@ -519,13 +598,13 @@ function _renderModelDropdown(dropdown, models) {
 async function initModelPicker() {
   try {
     const data = await invoke('list_models');
-    _allModels  = data.models || [];
+    _allModels = data.models || [];
     if (!_allModels.length) return;
 
     const defaultId = data.default || _allModels[0].id;
-    const initial   = _allModels.find((m) => m.id === defaultId) || _allModels[0];
-    selectedModel   = initial.id;
-    const nameEl    = $('modelName');
+    const initial = _allModels.find((m) => m.id === defaultId) || _allModels[0];
+    selectedModel = initial.id;
+    const nameEl = $('modelName');
     if (nameEl) nameEl.textContent = initial.name;
 
     const dropdown = $('modelDropdown');
@@ -580,14 +659,14 @@ document.addEventListener('click', (e) => {
 // ─────────────────────────────────────────────────────────
 // AGENT PICKER
 // ─────────────────────────────────────────────────────────
-const BUILTIN_AGENT_ICONS = { ask:'💬', plan:'📋', code:'💻', agent:'🤖' };
+const BUILTIN_AGENT_ICONS = { ask: '💬', plan: '📋', code: '💻', agent: '🤖' };
 
 // Dynamic prefix map — populated by initAgentPicker().
 // Built-in entries seeded here as fallback.
 const agentPrefixes = new Map([
-  ['ask',   ''],
-  ['plan',  '请逐步思考并列出详细执行计划，然后回答：\n\n'],
-  ['code',  '请以代码为主要输出格式，提供完整可运行代码：\n\n'],
+  ['ask', ''],
+  ['plan', '请逐步思考并列出详细执行计划，然后回答：\n\n'],
+  ['code', '请以代码为主要输出格式，提供完整可运行代码：\n\n'],
   ['agent', '请作为自主 Agent，分析任务并使用所有可用工具/技能完成它：\n\n'],
 ]);
 
@@ -597,10 +676,10 @@ async function initAgentPicker() {
 
   // ── Fallback built-in list ────────────────────────────
   let agents = [
-    {id:'ask',   name:'Ask',   type:'builtin', icon:'💬', description:'单轮问答，直接回复'},
-    {id:'plan',  name:'Plan',  type:'builtin', icon:'📋', description:'逐步推理，制定计划'},
-    {id:'code',  name:'Code',  type:'builtin', icon:'💻', description:'代码为主，给出完整实现'},
-    {id:'agent', name:'Agent', type:'builtin', icon:'🤖', description:'自主 Agent，调用工具完成任务'},
+    { id: 'ask', name: 'Ask', type: 'builtin', icon: '💬', description: '单轮问答，直接回复' },
+    { id: 'plan', name: 'Plan', type: 'builtin', icon: '📋', description: '逐步推理，制定计划' },
+    { id: 'code', name: 'Code', type: 'builtin', icon: '💻', description: '代码为主，给出完整实现' },
+    { id: 'agent', name: 'Agent', type: 'builtin', icon: '🤖', description: '自主 Agent，调用工具完成任务' },
   ];
 
   try {
@@ -620,14 +699,14 @@ async function initAgentPicker() {
   // Set initial display
   const initial = agents[0];
   selectedAgent = initial.id;
-  const nameEl  = $('agentModeName');
-  const iconEl  = $('agentModeIcon');
+  const nameEl = $('agentModeName');
+  const iconEl = $('agentModeIcon');
   if (nameEl) nameEl.textContent = initial.name;
   if (iconEl) iconEl.textContent = initial.icon || BUILTIN_AGENT_ICONS[initial.id] || '✨';
 
   // Render dropdown
   dropdown.innerHTML = agents.map((a) => {
-    const icon     = a.icon || BUILTIN_AGENT_ICONS[a.id] || '✨';
+    const icon = a.icon || BUILTIN_AGENT_ICONS[a.id] || '✨';
     const isCustom = a.type === 'custom';
     return `
       <div class="model-option agent-option${a.id === selectedAgent ? ' selected' : ''}"
@@ -731,8 +810,8 @@ function _renderAttachChips() {
   container.innerHTML = attachments.map((a) => `
     <div class="attach-chip">
       ${a.isImage && a.dataUrl
-        ? `<img class="attach-chip-img" src="${a.dataUrl}" alt="${a.name}" />`
-        : `<span class="attach-chip-icon">${a.isImage ? '🖼️' : '📄'}</span>`}
+    ? `<img class="attach-chip-img" src="${a.dataUrl}" alt="${a.name}" />`
+    : `<span class="attach-chip-icon">${a.isImage ? '🖼️' : '📄'}</span>`}
       <span class="attach-chip-name">${a.name}</span>
       <button class="attach-chip-remove" onclick="removeAttachment(${a.id})" aria-label="移除">✕</button>
     </div>`).join('');
@@ -760,9 +839,9 @@ promptEl?.addEventListener('paste', (e) => {
 
 // Drag & drop onto input bar
 const _inputBar = document.querySelector('.input-bar');
-_inputBar?.addEventListener('dragover',  (e) => { e.preventDefault(); _inputBar.classList.add('drag-over'); });
-_inputBar?.addEventListener('dragleave', ()  => _inputBar.classList.remove('drag-over'));
-_inputBar?.addEventListener('drop',      (e) => {
+_inputBar?.addEventListener('dragover', (e) => { e.preventDefault(); _inputBar.classList.add('drag-over'); });
+_inputBar?.addEventListener('dragleave', () => _inputBar.classList.remove('drag-over'));
+_inputBar?.addEventListener('drop', (e) => {
   e.preventDefault();
   _inputBar.classList.remove('drag-over');
   for (const f of (e.dataTransfer?.files || [])) addAttachment(f);
@@ -773,15 +852,15 @@ _inputBar?.addEventListener('drop',      (e) => {
 // ─────────────────────────────────────────────────────────
 function addProp(toolRaw, action) {
   if (!propsOverlay) return;
-  const key  = `${toolRaw}-${Date.now()}`;
+  const key = `${toolRaw}-${Date.now()}`;
   const tool = (toolRaw || 'system').toLowerCase();
   const icon = TOOL_ICON[tool] || TOOL_ICON.system;
 
   const positions = [
-    { top: '30px',    left: '10px'  },
-    { top: '110px',   right: '8px'  },
-    { bottom: '130px',left: '6px'   },
-    { bottom: '60px', right: '6px'  },
+    { top: '30px', left: '10px' },
+    { top: '110px', right: '8px' },
+    { bottom: '130px', left: '6px' },
+    { bottom: '60px', right: '6px' },
   ];
   const idx = activeProps.size % positions.length;
 
@@ -817,7 +896,7 @@ function removeProp(toolRaw) {
 function setCodeBlock(language, preview) {
   if (!codeOutputEl || !codeLangBadgeEl) return;
   codeLangBadgeEl.textContent = language || 'text';
-  codeOutputEl.textContent    = preview   || '';
+  codeOutputEl.textContent = preview || '';
   // Auto-open side panel to code tab
   openSidePanel();
   activateStab('code');
@@ -829,9 +908,9 @@ function setCodeBlock(language, preview) {
 function updatePersona(payload) {
   if (!payload) return;
   const { icon, display_name, costume_tag, accent_color } = payload;
-  if (personaIconEl && icon)          personaIconEl.textContent = icon;
-  if (personaNameEl && display_name)  personaNameEl.textContent = display_name;
-  if (costumeTagEl  && costume_tag)   costumeTagEl.textContent  = costume_tag;
+  if (personaIconEl && icon) personaIconEl.textContent = icon;
+  if (personaNameEl && display_name) personaNameEl.textContent = display_name;
+  if (costumeTagEl && costume_tag) costumeTagEl.textContent = costume_tag;
   if (accent_color) {
     document.documentElement.style.setProperty('--accent', accent_color);
   }
@@ -864,7 +943,7 @@ function parseDomainEventMessage(msg) {
   }
 
   if (msg.includes('ToolCallStarted')) {
-    const tool   = msg.match(/tool:\s*"([^"]+)"/)?.[1]   || 'system';
+    const tool = msg.match(/tool:\s*"([^"]+)"/)?.[1] || 'system';
     const action = msg.match(/action:\s*"([^"]+)"/)?.[1] || tool;
     addProp(tool, action);
   }
@@ -892,13 +971,13 @@ function parseDomainEventMessage(msg) {
   if (msg.includes('AgentTodoUpdated')) {
     const index = Number(msg.match(/index:\s*(\d+)/)?.[1] || '0');
     const title = msg.match(/title:\s*"([^"]+)"/)?.[1] || `todo-${index}`;
-    const done  = msg.includes('done: true');
+    const done = msg.includes('done: true');
     todos[index] = { title, done };
     renderTodos();
   }
 
   if (msg.includes('AgentCodeGenerated')) {
-    const lang    = msg.match(/language:\s*"([^"]+)"/)?.[1] || 'text';
+    const lang = msg.match(/language:\s*"([^"]+)"/)?.[1] || 'text';
     const preview = msg.match(/preview:\s*"([\s\S]*)"\s*\}/)?.[1] || '';
     setCodeBlock(lang, preview.replace(/\\n/g, '\n'));
   }
@@ -911,8 +990,8 @@ function parseDomainEventMessage(msg) {
   if (msg.includes('PersonaChanged')) {
     updatePersona({
       display_name: msg.match(/display_name:\s*"([^"]+)"/)?.[1],
-      icon:         msg.match(/icon:\s*"([^"]+)"/)?.[1],
-      costume_tag:  msg.match(/costume_tag:\s*"([^"]+)"/)?.[1],
+      icon: msg.match(/icon:\s*"([^"]+)"/)?.[1],
+      costume_tag: msg.match(/costume_tag:\s*"([^"]+)"/)?.[1],
       accent_color: msg.match(/accent_color:\s*"([^"]+)"/)?.[1],
     });
   }
@@ -1017,8 +1096,8 @@ $('voice-btn-mic')?.addEventListener('click', () => openSystemPrefs('Microphone'
 // Close popup when clicking outside
 document.addEventListener('click', (e) => {
   if (voicePopup?.classList.contains('show') &&
-      !voicePopup.contains(e.target) &&
-      e.target !== micArrowBtn) {
+    !voicePopup.contains(e.target) &&
+    e.target !== micArrowBtn) {
     voicePopup.classList.remove('show');
     voicePopup.setAttribute('aria-hidden', 'true');
     micArrowBtn?.classList.remove('open');
@@ -1056,13 +1135,13 @@ $('clearResponseBtn')?.addEventListener('click', () => {
 
 // Clear all logs button (in settings panel)
 $('clearAllBtn')?.addEventListener('click', () => {
-  if (responseEl)          responseEl.textContent     = '';
-  if (eventsEl)            eventsEl.textContent        = '暂无事件';
-  if (preflightEl)         preflightEl.textContent     = '等待检测...';
-  if (thoughtTextEl)       thoughtTextEl.textContent   = '';
-  if (todoListEl)          todoListEl.innerHTML = '<li class="todo-empty">暂无任务</li>';
-  if (todoOverlayListEl)   todoOverlayListEl.innerHTML = '';
-  if (codeOutputEl)        codeOutputEl.textContent    = '暂无代码';
+  if (responseEl) responseEl.textContent = '';
+  if (eventsEl) eventsEl.textContent = '暂无事件';
+  if (preflightEl) preflightEl.textContent = '等待检测...';
+  if (thoughtTextEl) thoughtTextEl.textContent = '';
+  if (todoListEl) todoListEl.innerHTML = '<li class="todo-empty">暂无任务</li>';
+  if (todoOverlayListEl) todoOverlayListEl.innerHTML = '';
+  if (codeOutputEl) codeOutputEl.textContent = '暂无代码';
   todos.length = 0;
   skillsMap.clear();
   renderTodos();
@@ -1152,8 +1231,8 @@ async function submit(mode) {
 async function initLive2D() {
   try {
     if (typeof PIXI === 'undefined' ||
-        typeof L2D === 'undefined' ||
-        typeof window.live2dAdapter === 'undefined') {
+      typeof L2D === 'undefined' ||
+      typeof window.live2dAdapter === 'undefined') {
       throw new Error('Cubism SDK not ready — check vendor scripts in index.html');
     }
 
@@ -1177,16 +1256,16 @@ async function initLive2D() {
 // Maps backend activity names → dujiaoshou_4 motion names.
 // Motion stems come from motions/*.motion3.json filenames.
 const MOTION_MAP = {
-  Idle:           'idle',          // peaceful waiting
-  ThinkingLight:  'home',          // calm, relaxed
-  ThinkingDeep:   'main_3',        // concentrated
-  Planning:       'mission',       // determined
-  TodoProgress:   'main_1',        // busy & active
-  UsingTool:      'touch_special', // special action
-  InvokingSkill:  'main_2',        // skilled motion
+  Idle: 'idle',          // peaceful waiting
+  ThinkingLight: 'home',          // calm, relaxed
+  ThinkingDeep: 'main_3',        // concentrated
+  Planning: 'mission',       // determined
+  TodoProgress: 'main_1',        // busy & active
+  UsingTool: 'touch_special', // special action
+  InvokingSkill: 'main_2',        // skilled motion
   GeneratingCode: 'main_3',        // focused output
-  Speaking:       'touch_head',    // engaged conversation
-  Celebrating:    'complete',      // success!
+  Speaking: 'touch_head',    // engaged conversation
+  Celebrating: 'complete',      // success!
 };
 
 function triggerLive2DMotion(state, activity) {
@@ -1195,8 +1274,12 @@ function triggerLive2DMotion(state, activity) {
 }
 
 // ─────────────────────────────────────────────────────────
-// STATE DEMO — ↻ button + avatar click
+// STATE DEMO — ↻ button + avatar click + 8-second auto-cycle
 // ─────────────────────────────────────────────────────────
+
+// Exposed so the auto-timer below can call it without restructuring the IIFE.
+let _applyDemoState = null;
+
 (function bindStateCycle() {
   const STATES = Object.keys(ACTIVITY_LABELS);
 
@@ -1215,6 +1298,9 @@ function triggerLive2DMotion(state, activity) {
     triggerLive2DMotion(cssState, activity);
   }
 
+  // Share with the auto-timer.
+  _applyDemoState = applyDemoState;
+
   $('stateCycleBtn')?.addEventListener('click', () => {
     _demoStateIdx = (_demoStateIdx + 1) % STATES.length;
     applyDemoState(_demoStateIdx);
@@ -1225,6 +1311,17 @@ function triggerLive2DMotion(state, activity) {
     _demoStateIdx = (_demoStateIdx + 1) % STATES.length;
     applyDemoState(_demoStateIdx);
   });
+}());
+
+// ── 自动动作循环：每 8 秒触发下一个动作（仅在 Live2D 模型已加载后生效）──────────
+(function startAutoMotionCycle() {
+  const STATES = Object.keys(ACTIVITY_LABELS);
+  setInterval(() => {
+    // 仅当 Live2D 适配器已就绪时才触发，避免模型未加载时报错
+    if (!window.live2dAdapter) return;
+    _demoStateIdx = (_demoStateIdx + 1) % STATES.length;
+    if (_applyDemoState) _applyDemoState(_demoStateIdx);
+  }, 8000);
 }());
 
 // ─────────────────────────────────────────────────────────
@@ -1279,7 +1376,7 @@ function updatePermBadge(id, status) {
   if (!el) return;
   const s = String(status).toLowerCase();
   const isGranted = s === 'granted' || s === 'true';
-  const isDenied  = s === 'denied'  || s === 'false';
+  const isDenied = s === 'denied' || s === 'false';
   el.textContent = isGranted ? '✓ 已授权' : isDenied ? '✗ 已拒绝' : '? 未知';
   el.className = 'perm-status ' + (isGranted ? 'granted' : isDenied ? 'denied' : 'unknown');
 }
@@ -1289,12 +1386,12 @@ function renderProviderStatus(p) {
   if (!el) return;
   el.innerHTML = '';
   [
-    ['Anthropic',  p.anthropicKey,  'Claude 系列'],
-    ['OpenAI',     p.openaiKey,     'GPT 系列'],
-    ['Copilot',    p.copilotToken,  'GitHub Copilot'],
-    ['claude CLI', p.claudeCli,     'CLI'],
-    ['codex CLI',  p.codexCli,      'CLI'],
-    ['gemini CLI', p.geminiCli,     'Gemini'],
+    ['Anthropic', p.anthropicKey, 'Claude 系列'],
+    ['OpenAI', p.openaiKey, 'GPT 系列'],
+    ['Copilot', p.copilotToken, 'GitHub Copilot'],
+    ['claude CLI', p.claudeCli, 'CLI'],
+    ['codex CLI', p.codexCli, 'CLI'],
+    ['gemini CLI', p.geminiCli, 'Gemini'],
   ].forEach(([name, ok, hint]) => {
     const chip = document.createElement('div');
     chip.className = `provider-chip ${ok ? 'ok' : 'fail'}`;
@@ -1308,25 +1405,25 @@ async function loadSettingsPanel() {
   try {
     const preflight = await invoke('macos_preflight');
     updatePermBadge('perm-accessibility', preflight.accessibility);
-    updatePermBadge('perm-microphone',    preflight.microphone);
-    updatePermBadge('perm-screen',        preflight.screenRecording);
-    updatePermBadge('perm-automation',    preflight.automationEnabled ? 'Granted' : 'Denied');
+    updatePermBadge('perm-microphone', preflight.microphone);
+    updatePermBadge('perm-screen', preflight.screenRecording);
+    updatePermBadge('perm-automation', preflight.automationEnabled ? 'Granted' : 'Denied');
     // Voice popup perm badge
     updatePermBadge('voice-perm-mic', preflight.microphone);
     renderPreflight(preflight);
-  } catch (_) {}
+  } catch (_) { }
 
   try {
     const providers = await invoke('detect_providers');
     renderProviderStatus(providers);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 // Permission buttons
 $('btn-perm-accessibility')?.addEventListener('click', () => openSystemPrefs('Accessibility'));
-$('btn-perm-microphone')?.addEventListener('click',    () => openSystemPrefs('Microphone'));
-$('btn-perm-screen')?.addEventListener('click',        () => openSystemPrefs('ScreenCapture'));
-$('btn-perm-automation')?.addEventListener('click',    () => openSystemPrefs('Automation'));
+$('btn-perm-microphone')?.addEventListener('click', () => openSystemPrefs('Microphone'));
+$('btn-perm-screen')?.addEventListener('click', () => openSystemPrefs('ScreenCapture'));
+$('btn-perm-automation')?.addEventListener('click', () => openSystemPrefs('Automation'));
 
 // API key buttons
 $('save-anthropic')?.addEventListener('click', () => {
@@ -1383,7 +1480,7 @@ async function init() {
       const quotaData = await invoke('get_provider_quota');
       const cq = quotaData?.copilot;
       if (cq) setCopilotQuota(cq);
-    } catch (_) {}
+    } catch (_) { }
   }
   await refreshQuota();
   // Refresh quota every 5 minutes

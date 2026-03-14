@@ -308,6 +308,10 @@ pub struct CopilotHttpProvider {
     /// the first success wins.
     github_tokens: Vec<String>,
     model: String,
+    /// The most recently successful GitHub token for the quota endpoint.
+    /// Avoids iterating on every call — only falls back to full iteration
+    /// when the cached token is absent or returns a non-2xx response.
+    cached_quota_token: std::sync::RwLock<Option<String>>,
 }
 
 impl CopilotHttpProvider {
@@ -319,7 +323,12 @@ impl CopilotHttpProvider {
         let model = std::env::var("COPILOT_MODEL")
             .unwrap_or_else(|_| "gpt-4o".into());
         info!("ai_adapters: CopilotHttpProvider active ({} token candidate(s), model: {model})", tokens.len());
-        Some(Self { client: make_client(), github_tokens: tokens, model })
+        Some(Self {
+            client: make_client(),
+            github_tokens: tokens,
+            model,
+            cached_quota_token: std::sync::RwLock::new(None),
+        })
     }
 
     /// Collect every real GitHub token from all known sources, deduped, ordered
@@ -550,26 +559,70 @@ impl LlmProvider for CopilotHttpProvider {
     }
 
     async fn check_quota(&self) -> Option<serde_json::Value> {
-        let token = self.github_tokens.first()?;
-        let client = make_client();
-        let resp = client
-            .get("https://api.github.com/copilot_internal/user")
-            .header("Authorization", format!("token {token}"))
-            .header("Accept", "application/json")
-            .header("X-Github-Api-Version", "2025-04-01")
-            .header("Editor-Version", "vscode/1.96.2")
-            .header("Editor-Plugin-Version", "copilot-chat/0.26.7")
-            .header("User-Agent", "GitHubCopilotChat/0.26.7")
-            .send()
-            .await
-            .ok()?;
-
-        if !resp.status().is_success() {
-            warn!("copilot-http: quota HTTP {} — quota unavailable", resp.status());
+        if self.github_tokens.is_empty() {
             return None;
         }
 
-        let json: serde_json::Value = resp.json().await.ok()?;
+        // Read the previously successful token (if any) to try it first,
+        // short-circuiting the full iteration on the happy path.
+        let cached: Option<String> = self.cached_quota_token
+            .read()
+            .ok()
+            .and_then(|g| g.clone());
+
+        // Build ordered candidate list: cached token first (deduped), then rest.
+        let mut ordered: Vec<&str> = Vec::new();
+        if let Some(ref c) = cached {
+            ordered.push(c.as_str());
+        }
+        for t in &self.github_tokens {
+            if cached.as_deref() != Some(t.as_str()) {
+                ordered.push(t.as_str());
+            }
+        }
+
+        let mut json: Option<serde_json::Value> = None;
+        for token in &ordered {
+            let short = &token[..token.len().min(12)];
+            let resp = match self.client
+                .get("https://api.github.com/copilot_internal/user")
+                .header("Authorization", format!("token {token}"))
+                .header("Accept", "application/json")
+                .header("X-Github-Api-Version", "2025-04-01")
+                .header("Editor-Version", "vscode/1.96.2")
+                .header("Editor-Plugin-Version", "copilot-chat/0.26.7")
+                .header("User-Agent", "GitHubCopilotChat/0.26.7")
+                .send()
+                .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    warn!("copilot-http: quota token {short}... request error — {e}");
+                    continue;
+                }
+            };
+            if !resp.status().is_success() {
+                warn!("copilot-http: quota token {short}... HTTP {} — trying next", resp.status());
+                // If this was the cached token, wipe it so the next call re-iterates.
+                if cached.as_deref() == Some(*token) {
+                    if let Ok(mut g) = self.cached_quota_token.write() {
+                        *g = None;
+                    }
+                }
+                continue;
+            }
+            // Cache the winner if it differs from what was stored.
+            if cached.as_deref() != Some(*token) {
+                if let Ok(mut g) = self.cached_quota_token.write() {
+                    *g = Some(token.to_string());
+                }
+                debug!("copilot-http: quota — cached token {short}...");
+            }
+            json = resp.json().await.ok();
+            debug!("copilot-http: quota token {short}... succeeded");
+            break;
+        }
+        let json = json?;
         // The API returns snake_case fields (confirmed via vscode-copilot-chat source):
         //   quota_snapshots.premium_interactions.percent_remaining
         //   quota_snapshots.chat.percent_remaining
