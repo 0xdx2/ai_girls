@@ -31,6 +31,7 @@ impl MacOsIntegration {
         cfg!(target_os = "macos")
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn check_permissions(&self) -> PermissionSnapshot {
         // Env-var overrides take priority (useful for CI / non-macOS dev)
         let accessibility = env_override("MACOS_ACCESSIBILITY_GRANTED")
@@ -51,7 +52,7 @@ impl MacOsIntegration {
         }
     }
 
-    /// Probe Accessibility by attempting a harmless System Events AppleScript call.
+    /// Probe Accessibility by attempting a harmless System Events `AppleScript` call.
     fn probe_accessibility() -> Option<PermissionStatus> {
         if !Self::is_macos() {
             return None;
@@ -77,7 +78,7 @@ impl MacOsIntegration {
         }
     }
 
-    /// Probe Microphone permission via a Swift one-liner (AVFoundation).
+    /// Probe Microphone permission via a Swift one-liner (`AVFoundation`).
     fn probe_microphone() -> Option<PermissionStatus> {
         if !Self::is_macos() {
             return None;
@@ -139,6 +140,11 @@ impl MacOsIntegration {
         target_app: &str,
         text: &str,
     ) -> Result<String, MacOsError> {
+        // Security: only allow whitelisted applications
+        const ALLOWED_APPS: &[&str] = &[
+            "Terminal", "iTerm2", "Visual Studio Code", "Code",
+            "Finder", "Safari", "TextEdit", "Xcode",
+        ];
         if !Self::is_macos() {
             return Err(MacOsError::UnsupportedPlatform("not macOS"));
         }
@@ -147,11 +153,6 @@ impl MacOsIntegration {
             return Err(MacOsError::AutomationDisabled);
         }
 
-        // Security: only allow whitelisted applications
-        const ALLOWED_APPS: &[&str] = &[
-            "Terminal", "iTerm2", "Visual Studio Code", "Code",
-            "Finder", "Safari", "TextEdit", "Xcode",
-        ];
         if !ALLOWED_APPS.contains(&target_app) {
             return Err(MacOsError::CommandFailed(format!(
                 "'{target_app}' is not in the automation whitelist"
@@ -160,11 +161,9 @@ impl MacOsIntegration {
 
         let escaped = text.replace('"', "\\\"");
         let script = format!(
-            "tell application \"{target}\" to activate\n\
+            "tell application \"{target_app}\" to activate\n\
              delay 0.3\n\
-             tell application \"System Events\" to keystroke \"{text}\"",
-            target = target_app,
-            text = escaped
+             tell application \"System Events\" to keystroke \"{escaped}\""
         );
 
         let output = tokio::process::Command::new("osascript")
@@ -191,10 +190,10 @@ fn parse_status_env(name: &str) -> PermissionStatus {
 
 fn env_override(var: &str) -> Option<PermissionStatus> {
     match std::env::var(var).ok().as_deref() {
-        Some("1") | Some("true") | Some("TRUE") | Some("Granted") | Some("granted") => {
+        Some("1" | "true" | "TRUE" | "Granted" | "granted") => {
             Some(PermissionStatus::Granted)
         }
-        Some("0") | Some("false") | Some("FALSE") | Some("Denied") | Some("denied") => {
+        Some("0" | "false" | "FALSE" | "Denied" | "denied") => {
             Some(PermissionStatus::Denied)
         }
         _ => None,

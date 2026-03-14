@@ -315,7 +315,7 @@ fn is_subcommand_safe(command: &str) -> bool {
         ),
         "npm" => matches!(sub, "list" | "ls" | "info" | "search" | "outdated"),
         "pip3" => matches!(sub, "list" | "show" | "search" | "freeze"),
-        "python3" | "node" => true, // allow scripting with these
+        // allow scripting with python3/node (no sub-filter)
         "top" => false,             // top is interactive, skip
         "system_profiler" => {
             // only allow specific data types that don't expose private info

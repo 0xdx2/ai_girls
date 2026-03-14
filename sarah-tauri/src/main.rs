@@ -1,3 +1,7 @@
+// The elided lifetime `'_` in `tauri::State<'_, T>` parameters triggers a false-positive
+// `used_underscore_binding` lint on return types. Allow it for this file.
+#![allow(clippy::used_underscore_binding)]
+
 mod state_model;
 mod ai_adapters;
 mod avatar_runtime;
@@ -67,9 +71,9 @@ struct MacOsPreflight {
 struct StateChangeEvent {
     state: String,
     visual_hint: String,
-    /// Fine-grained activity name (e.g. "ThinkingDeep", "Planning", "UsingTool").
+    /// Fine-grained activity name (e.g. "`ThinkingDeep`", "Planning", "`UsingTool`").
     activity: String,
-    /// CSS class for the activity overlay (e.g. "activity_thinking_deep").
+    /// CSS class for the activity overlay (e.g. "`activity_thinking_deep`").
     activity_hint: String,
 }
 
@@ -86,6 +90,7 @@ impl From<RunSummary> for RunSummaryDto {
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn submit_text(input: String, state: tauri::State<'_, AppState>) -> Result<RunSummaryDto, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -102,6 +107,7 @@ async fn submit_text(input: String, state: tauri::State<'_, AppState>) -> Result
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn submit_voice(input: String, state: tauri::State<'_, AppState>) -> Result<RunSummaryDto, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -118,12 +124,14 @@ async fn submit_voice(input: String, state: tauri::State<'_, AppState>) -> Resul
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn recent_events(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
     let logs = state.event_logs.lock().await;
     Ok(logs.iter().cloned().collect())
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn list_providers(state: tauri::State<'_, AppState>) -> Result<Vec<String>, String> {
     let orchestrator = state.orchestrator.lock().await;
     Ok(orchestrator.available_providers())
@@ -192,8 +200,7 @@ fn detect_providers() -> serde_json::Value {
                 if map.values().any(|v| {
                     v.get("oauth_token")
                         .and_then(|t| t.as_str())
-                        .map(|t| crate::ai_adapters::is_real_github_token(t.trim()))
-                        .unwrap_or(false)
+                        .is_some_and(|t| crate::ai_adapters::is_real_github_token(t.trim()))
                 }) {
                     return Some(true);
                 }
@@ -207,8 +214,7 @@ fn detect_providers() -> serde_json::Value {
                 let ok = val.get("github.com")
                     .and_then(|v| v.get("oauth_token"))
                     .and_then(|t| t.as_str())
-                    .map(|t| crate::ai_adapters::is_real_github_token(t.trim()))
-                    .unwrap_or(false);
+                    .is_some_and(|t| crate::ai_adapters::is_real_github_token(t.trim()));
                 if ok { return Some(true); }
             }
         }
@@ -233,13 +239,13 @@ fn detect_providers() -> serde_json::Value {
 }
 
 // ─── helpers: parse YAML frontmatter from .md files ─────────────────────────
-fn parse_frontmatter_field<'a>(content: &'a str, field: &str) -> Option<String> {
+fn parse_frontmatter_field(content: &str, field: &str) -> Option<String> {
     let content = content.trim_start();
     if !content.starts_with("---") { return None; }
     let rest = &content[3..];
     let end  = rest.find("---")?;
     let fm   = &rest[..end];
-    let prefix = format!("{}:", field);
+    let prefix = format!("{field}:");
     for line in fm.lines() {
         let line = line.trim();
         if let Some(val) = line.strip_prefix(&prefix) {
@@ -255,15 +261,13 @@ fn parse_frontmatter_field<'a>(content: &'a str, field: &str) -> Option<String> 
 fn scan_md_dir(dir: &std::path::Path, extra_fields: &[&str]) -> Vec<serde_json::Value> {
     use serde_json::json;
     let source = dir.parent()
-        .and_then(|p| p.file_name())
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "custom".into());
+        .and_then(|p| p.file_name()).map_or_else(|| "custom".into(), |n| n.to_string_lossy().into_owned());
 
     let mut out = Vec::new();
     let Ok(rd) = std::fs::read_dir(dir) else { return out; };
     for entry in rd.flatten() {
         let path = entry.path();
-        if path.extension().map_or(false, |e| e == "md") {
+        if path.extension().is_some_and(|e| e == "md") {
             let stem = path.file_stem()
                 .unwrap_or_default()
                 .to_string_lossy()
@@ -292,9 +296,7 @@ fn scan_md_dir(dir: &std::path::Path, extra_fields: &[&str]) -> Vec<serde_json::
 fn scan_skill_dir(dir: &std::path::Path) -> Vec<serde_json::Value> {
     use serde_json::json;
     let source = dir.parent()
-        .and_then(|p| p.file_name())
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "custom".into());
+        .and_then(|p| p.file_name()).map_or_else(|| "custom".into(), |n| n.to_string_lossy().into_owned());
 
     let mut out = Vec::new();
     let Ok(rd) = std::fs::read_dir(dir) else { return out; };
@@ -304,9 +306,7 @@ fn scan_skill_dir(dir: &std::path::Path) -> Vec<serde_json::Value> {
         let skill_file = subdir.join("SKILL.md");
         if !skill_file.exists() { continue; }
 
-        let stem = subdir.file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "unknown".into());
+        let stem = subdir.file_name().map_or_else(|| "unknown".into(), |n| n.to_string_lossy().into_owned());
         let content = std::fs::read_to_string(&skill_file).unwrap_or_default();
         let name = parse_frontmatter_field(&content, "name").unwrap_or_else(|| stem.clone());
         let icon = parse_frontmatter_field(&content, "icon");
@@ -324,7 +324,7 @@ fn scan_skill_dir(dir: &std::path::Path) -> Vec<serde_json::Value> {
     out
 }
 
-/// Build the full agent list (builtins + disk scan) for caching in AppState.
+/// Build the full agent list (builtins + disk scan) for caching in `AppState`.
 fn build_agent_list() -> Vec<serde_json::Value> {
     use serde_json::json;
     let mut agents: Vec<serde_json::Value> = vec![
@@ -346,7 +346,7 @@ fn build_agent_list() -> Vec<serde_json::Value> {
     agents
 }
 
-/// Build the full skill list (SKILL.md scan) for caching in AppState.
+/// Build the full skill list (SKILL.md scan) for caching in `AppState`.
 fn build_skill_list() -> Vec<serde_json::Value> {
     let mut skills: Vec<serde_json::Value> = vec![];
     let home = std::env::var("HOME").unwrap_or_default();
@@ -364,6 +364,7 @@ fn build_skill_list() -> Vec<serde_json::Value> {
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn list_models(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
     use serde_json::json;
     let orchestrator = state.orchestrator.lock().await;
@@ -371,18 +372,21 @@ async fn list_models(state: tauri::State<'_, AppState>) -> Result<serde_json::Va
 }
 
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn list_agents(state: tauri::State<'_, AppState>) -> serde_json::Value {
     use serde_json::json;
     json!({ "agents": *state.agents })
 }
 
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn list_skills(state: tauri::State<'_, AppState>) -> serde_json::Value {
     use serde_json::json;
     json!({ "skills": *state.skills })
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn set_active_model(
     provider: String,
     model: String,
@@ -390,10 +394,9 @@ async fn set_active_model(
 ) -> Result<(), String> {
     // Map provider family → env var key used by the corresponding provider
     let env_key = match provider.as_str() {
-        "openai"    => "COPILOT_MODEL",   // Copilot uses same key; OpenAI direct also respects it
         "anthropic" => "ANTHROPIC_MODEL",
         "google"    => "GEMINI_MODEL",
-        _           => "COPILOT_MODEL",
+        _ => "COPILOT_MODEL",   // Copilot uses same key; OpenAI direct also respects it
     };
     std::env::set_var(env_key, &model);
 
@@ -408,6 +411,7 @@ async fn set_active_model(
 }
 
 #[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
 fn open_system_prefs(pane: String) {
     let url = match pane.as_str() {
         "Accessibility" =>
@@ -425,6 +429,7 @@ fn open_system_prefs(pane: String) {
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn save_api_key(
     key: String,
     value: String,
@@ -434,8 +439,8 @@ async fn save_api_key(
     let existing = std::fs::read_to_string(&env_path).unwrap_or_default();
     let mut lines: Vec<String> = existing
         .lines()
-        .filter(|l| !l.starts_with(&format!("{}=", key)))
-        .map(|l| l.to_owned())
+        .filter(|l| !l.starts_with(&format!("{key}=")))
+        .map(std::borrow::ToOwned::to_owned)
         .collect();
     if !value.trim().is_empty() {
         lines.push(format!("{}={}", key, value.trim()));
@@ -457,6 +462,7 @@ async fn save_api_key(
 }
 
 #[tauri::command]
+#[allow(clippy::used_underscore_binding)]
 async fn get_provider_quota(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
     let orchestrator = state.orchestrator.lock().await;
     Ok(orchestrator.check_quota().await.unwrap_or(serde_json::Value::Null))

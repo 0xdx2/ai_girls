@@ -8,19 +8,23 @@ impl VoicePipeline {
         Self
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn transcribe_mock(&self, spoken_text: &str) -> String {
         spoken_text.to_owned()
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn synthesize(&self, text: &str) -> Vec<u8> {
         text.as_bytes().to_vec()
     }
 
+    #[allow(clippy::unused_self)]
     pub fn estimate_duration_ms(&self, text: &str) -> u64 {
         let base = (text.chars().count() as u64).saturating_mul(80);
         base.max(300)
     }
 
+    #[allow(clippy::unused_self)]
     pub fn lipsync_frames(&self, text: &str, total_ms: u64) -> Vec<VisemeFrame> {
         let chars: Vec<char> = text.chars().collect();
         if chars.is_empty() {

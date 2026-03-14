@@ -8,7 +8,7 @@ pub struct AvatarStateMachine {
     activity: AvatarActivity,
     min_state_duration: Duration,
     last_transition: Instant,
-    /// Number of ModelThinkingChunk events seen for the current task.
+    /// Number of `ModelThinkingChunk` events seen for the current task.
     thinking_chunk_count: u8,
     /// Total todos declared by the current plan.
     plan_total: usize,
@@ -42,6 +42,7 @@ impl AvatarStateMachine {
     /// Returns the new (or unchanged) `AvatarState`.
     /// The activity is also updated internally; callers may read it via
     /// `current_activity()` after this call.
+    #[allow(clippy::too_many_lines)]
     pub fn reduce(&mut self, event: &DomainEvent) -> AvatarState {
         // ── Step 1: update fine-grained activity ──────────────────────────────
         match event {
@@ -110,32 +111,26 @@ impl AvatarStateMachine {
         let target = match event {
             DomainEvent::ErrorOccurred { .. } => AvatarState::Error,
             DomainEvent::UserInputReceived { .. } => AvatarState::Listening,
-            DomainEvent::AsrFinal { .. } => AvatarState::Thinking,
-            DomainEvent::AgentThinkingStarted { .. }
+            DomainEvent::AsrFinal { .. }
+            | DomainEvent::AgentThinkingStarted { .. }
             | DomainEvent::ModelThinkingChunk { .. } => AvatarState::Thinking,
             DomainEvent::AgentAnswerReady { .. } => AvatarState::Speaking,
             DomainEvent::ToolCallStarted { .. }
             | DomainEvent::SkillInvoked { .. }
             | DomainEvent::AgentCodeGenerated { .. }
             | DomainEvent::AgentPlanCreated { .. }
-            | DomainEvent::AgentTodoUpdated { .. } => AvatarState::Working,
-            DomainEvent::ToolCallFinished { success, .. } => {
+            | DomainEvent::AgentTodoUpdated { .. }
+            | DomainEvent::SystemActionRequested { .. } => AvatarState::Working,
+            DomainEvent::ToolCallFinished { success, .. }
+            | DomainEvent::SystemActionExecuted { success, .. } => {
                 if *success {
                     AvatarState::Success
                 } else {
                     AvatarState::Error
                 }
             }
-            DomainEvent::VoicePlaybackFinished => AvatarState::Idle,
-            DomainEvent::SystemActionRequested { .. } => AvatarState::Working,
-            DomainEvent::SystemActionExecuted { success, .. } => {
-                if *success {
-                    AvatarState::Success
-                } else {
-                    AvatarState::Error
-                }
-            }
-            DomainEvent::TaskCompleted { .. } => AvatarState::Idle,
+            DomainEvent::VoicePlaybackFinished
+            | DomainEvent::TaskCompleted { .. } => AvatarState::Idle,
             _ => self.current,
         };
 

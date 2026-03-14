@@ -277,7 +277,7 @@ ai_girls/
 提交前建议至少确认以下检查通过：
 
 ```bash
-cargo clippy --all-targets -- -D warnings
+cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings
 cargo fmt --check
 ```
 

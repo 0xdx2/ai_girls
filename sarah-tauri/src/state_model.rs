@@ -15,13 +15,13 @@ pub enum AvatarState {
 
 /// Fine-grained activity the avatar is performing within its base state.
 /// Layered on top of `AvatarState` so the frontend applies a second CSS class
-/// and triggers matching Live2D motions / expressions.
+/// and triggers matching `Live2D` motions / expressions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum AvatarActivity {
     #[default]
     Idle,
-    /// Model is doing lightweight reasoning (few CoT chunks seen).
+    /// Model is doing lightweight reasoning (few `CoT` chunks seen).
     ThinkingLight,
     /// Model is in deep chain-of-thought (many reasoning chunks).
     ThinkingDeep,
@@ -109,6 +109,7 @@ pub struct AgentTask {
     pub created_at_ms: u64,
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TokenUsageMetric {
     pub prompt_tokens: u32,

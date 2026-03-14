@@ -74,6 +74,7 @@ impl<P: LlmProvider> Orchestrator<P> {
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     pub fn pin_llm_provider(&mut self, p: P) -> Result<(), OrchestratorError> {
         self.llm = p;
         Ok(())
@@ -376,7 +377,7 @@ fn parse_action(raw: &str) -> (&str, &str) {
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_millis() as u64)
+        .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
 }
 
 #[cfg(test)]

@@ -74,9 +74,9 @@ pub struct PersonaProfile {
     pub glow_color: &'static str,
     /// Emoji icon representing this role in the badge and props tray.
     pub icon: &'static str,
-    /// Name of the Live2D expression to apply (empty = default).
+    /// Name of the `Live2D` expression to apply (empty = default).
     pub live2d_expression: &'static str,
-    /// Name of the Live2D idle motion group for this role.
+    /// Name of the `Live2D` idle motion group for this role.
     pub live2d_motion: &'static str,
     /// Descriptive costume tag displayed in the UI.
     pub costume_tag: &'static str,
@@ -84,6 +84,7 @@ pub struct PersonaProfile {
 
 impl PersonaProfile {
     /// Create a profile for the given role using built-in defaults.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn for_role(role: AgentRole) -> Self {
         let display_name = role.label().to_owned();
         match role {

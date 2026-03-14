@@ -142,7 +142,7 @@ pub fn is_real_github_token(s: &str) -> bool {
 }
 
 fn estimate_tokens(text: &str) -> u32 {
-    (text.chars().count() as u32 / 4).max(1)
+    (u32::try_from(text.chars().count()).unwrap_or(u32::MAX) / 4).max(1)
 }
 
 fn make_client() -> reqwest::Client {
@@ -220,8 +220,8 @@ impl LlmProvider for ClaudeHttpProvider {
             .map_err(|e| LlmError::HttpFailed(e.to_string()))?;
         let text = json["content"][0]["text"]
             .as_str().ok_or(LlmError::EmptyResponse)?.to_owned();
-        let prompt_tokens = json["usage"]["input_tokens"].as_u64().unwrap_or(0) as u32;
-        let completion_tokens = json["usage"]["output_tokens"].as_u64().unwrap_or(0) as u32;
+        let prompt_tokens = u32::try_from(json["usage"]["input_tokens"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
+        let completion_tokens = u32::try_from(json["usage"]["output_tokens"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
         let parsed = parse_llm_output(&text);
         Ok(LlmResponse { text, parsed, prompt_tokens, completion_tokens, provider: "claude-http" })
     }
@@ -292,8 +292,8 @@ impl LlmProvider for OpenAIHttpProvider {
             .map_err(|e| LlmError::HttpFailed(e.to_string()))?;
         let text = json["choices"][0]["message"]["content"]
             .as_str().ok_or(LlmError::EmptyResponse)?.to_owned();
-        let prompt_tokens = json["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
-        let completion_tokens = json["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
+        let prompt_tokens = u32::try_from(json["usage"]["prompt_tokens"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
+        let completion_tokens = u32::try_from(json["usage"]["completion_tokens"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
         let parsed = parse_llm_output(&text);
         Ok(LlmResponse { text, parsed, prompt_tokens, completion_tokens, provider: "openai-http" })
     }
@@ -366,7 +366,7 @@ impl CopilotHttpProvider {
     }
 
     /// Reads from ~/.config/github-copilot/hosts.json
-    /// Format: {"github.com": {"oauth_token": "ghu_..."}}
+    /// Format: {"github.com": {"`oauth_token"`: "ghu_..."}}
     fn token_from_hosts_json() -> Option<String> {
         let home = std::env::var("HOME").ok()?;
         let path = std::path::PathBuf::from(home)
@@ -382,28 +382,19 @@ impl CopilotHttpProvider {
         Some(token)
     }
 
-    /// Returns (priority_tokens, other_tokens) from apps.json.
+    /// Returns (`priority_tokens`, `other_tokens`) from apps.json.
     /// Priority: keys containing VS Code client ID or Neovim client ID.
     fn tokens_from_apps_json() -> (Vec<String>, Vec<String>) {
         let empty = (Vec::new(), Vec::new());
-        let home = match std::env::var("HOME") {
-            Ok(h) => h,
-            Err(_) => return empty,
-        };
+        let Ok(home) = std::env::var("HOME") else { return empty };
         let path = std::path::PathBuf::from(home)
             .join(".config/github-copilot/apps.json");
-        let content = match std::fs::read_to_string(path) {
-            Ok(c) => c,
-            Err(_) => return empty,
-        };
+        let Ok(content) = std::fs::read_to_string(path) else { return empty };
         let json: serde_json::Value = match serde_json::from_str(&content) {
             Ok(v) => v,
             Err(_) => return empty,
         };
-        let map = match json.as_object() {
-            Some(m) => m,
-            None => return empty,
-        };
+        let Some(map) = json.as_object() else { return empty };
         let mut priority: Vec<String> = Vec::new();
         let mut rest: Vec<String> = Vec::new();
         for (key, val) in map {
@@ -628,19 +619,19 @@ impl LlmProvider for CopilotHttpProvider {
         //   quota_snapshots.chat.percent_remaining
         let premium_pct = json
             .pointer("/quota_snapshots/premium_interactions/percent_remaining")
-            .and_then(|v| v.as_f64());
+            .and_then(serde_json::Value::as_f64);
         let premium_remaining = json
             .pointer("/quota_snapshots/premium_interactions/remaining")
-            .and_then(|v| v.as_i64());
+            .and_then(serde_json::Value::as_i64);
         let premium_entitlement = json
             .pointer("/quota_snapshots/premium_interactions/entitlement")
-            .and_then(|v| v.as_i64());
+            .and_then(serde_json::Value::as_i64);
         let premium_unlimited = json
             .pointer("/quota_snapshots/premium_interactions/unlimited")
-            .and_then(|v| v.as_bool());
+            .and_then(serde_json::Value::as_bool);
         let chat_pct = json
             .pointer("/quota_snapshots/chat/percent_remaining")
-            .and_then(|v| v.as_f64());
+            .and_then(serde_json::Value::as_f64);
         let plan = json.get("copilot_plan")
             .and_then(|v| v.as_str())
             .map(ToOwned::to_owned);
@@ -660,10 +651,6 @@ impl LlmProvider for CopilotHttpProvider {
     }
 
     async fn complete(&self, prompt: &str) -> Result<LlmResponse, LlmError> {
-        debug!("copilot-http: obtaining API token...");
-        let api_token = self.get_copilot_token().await?;
-
-        debug!("copilot-http: POST chat/completions model={}", self.model);
         const SYSTEM_PROMPT: &str = "\
 You are an expert AI programming assistant, working with a user in the VS Code editor.\n\
 When asked for your name, you must respond with \"Sarah\". When asked about the model you are using, you must state that you are using Gpt-5.4.\n\
@@ -680,6 +667,10 @@ Continue working until the user's request is completely resolved before ending y
 Avoid giving time estimates or predictions for how long tasks will take. Focus on what needs to be done, not how long it might take.\n\
 If your approach is blocked, do not attempt to brute force your way to the outcome. For example, if an API call or test fails, do not wait and retry the same action repeatedly. Instead, consider alternative approaches or other ways you might unblock yourself.";
 
+        debug!("copilot-http: obtaining API token...");
+        let api_token = self.get_copilot_token().await?;
+
+        debug!("copilot-http: POST chat/completions model={}", self.model);
         let body = serde_json::json!({
             "model": self.model,
             "messages": [
@@ -708,8 +699,8 @@ If your approach is blocked, do not attempt to brute force your way to the outco
             .map_err(|e| LlmError::HttpFailed(e.to_string()))?;
         let text = json["choices"][0]["message"]["content"]
             .as_str().ok_or(LlmError::EmptyResponse)?.to_owned();
-        let prompt_tokens = json["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32;
-        let completion_tokens = json["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32;
+        let prompt_tokens = u32::try_from(json["usage"]["prompt_tokens"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
+        let completion_tokens = u32::try_from(json["usage"]["completion_tokens"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
         let parsed = parse_llm_output(&text);
         Ok(LlmResponse { text, parsed, prompt_tokens, completion_tokens, provider: "copilot-http" })
     }
@@ -718,7 +709,7 @@ If your approach is blocked, do not attempt to brute force your way to the outco
 // ─── Copilot Quota ────────────────────────────────────────────────────────────
 
 /// Copilot-specific quota snapshot returned under the `"copilot"` key.
-/// Fields mirror the `/copilot_internal/user` API response (snake_case).
+/// Fields mirror the `/copilot_internal/user` API response (`snake_case`).
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CopilotQuota {
     /// 0–100 percent of premium interactions (Claude/GPT-4o) remaining
@@ -731,7 +722,7 @@ pub struct CopilotQuota {
     pub premium_unlimited: Option<bool>,
     /// 0–100 percent of base chat quota remaining
     pub chat_percent_remaining: Option<f64>,
-    /// Plan label e.g. "individual", "individual_pro", "business"
+    /// Plan label e.g. "individual", "`individual_pro`", "business"
     pub plan: Option<String>,
 }
 
@@ -802,9 +793,9 @@ impl LlmProvider for GeminiHttpProvider {
         let text = json["candidates"][0]["content"]["parts"][0]["text"]
             .as_str().ok_or(LlmError::EmptyResponse)?.to_owned();
         let prompt_tokens =
-            json["usageMetadata"]["promptTokenCount"].as_u64().unwrap_or(0) as u32;
+            u32::try_from(json["usageMetadata"]["promptTokenCount"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
         let completion_tokens =
-            json["usageMetadata"]["candidatesTokenCount"].as_u64().unwrap_or(0) as u32;
+            u32::try_from(json["usageMetadata"]["candidatesTokenCount"].as_u64().unwrap_or(0)).unwrap_or(u32::MAX);
         let parsed = parse_llm_output(&text);
         Ok(LlmResponse { text, parsed, prompt_tokens, completion_tokens, provider: "gemini-http" })
     }
