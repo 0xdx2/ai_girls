@@ -1236,14 +1236,21 @@ async function initLive2D() {
       throw new Error('Cubism SDK not ready — check vendor scripts in index.html');
     }
 
+    // Make the canvas layout-visible before PIXI creates its WebGL context.
+    // display:none causes clientWidth/clientHeight = 0, which makes the WebGL
+    // framebuffer incomplete (zero-size attachment). Using visibility:hidden
+    // keeps the canvas in layout at 280×560 so PIXI gets the correct dimensions.
+    live2dCanvas.style.display = 'block';
+    live2dCanvas.style.visibility = 'hidden';
+
     live2dAdapter.init(
       live2dCanvas,
       'assets',
       'dujiaoshou_4',
       () => {
-        // Model fully loaded and idle is playing
+        // Model fully loaded and idle is playing — reveal canvas, hide placeholder
         staticAvatar.style.display = 'none';
-        live2dCanvas.style.display = 'block';
+        live2dCanvas.style.visibility = 'visible';
         setStatus('Live2D 模型加载成功 ✨');
         console.log('[Live2D] motions:', live2dAdapter.listMotions().join(', '));
       }
@@ -1306,11 +1313,43 @@ let _applyDemoState = null;
     applyDemoState(_demoStateIdx);
   });
 
-  $('avatarContainer')?.addEventListener('click', (e) => {
-    if (e.target.tagName === 'BUTTON') return;
-    _demoStateIdx = (_demoStateIdx + 1) % STATES.length;
-    applyDemoState(_demoStateIdx);
+  // ── Translate Agent frontmatter button ─────────────────────────────────────
+  $('translateAgentsBtn')?.addEventListener('click', async () => {
+    const btn = $('translateAgentsBtn');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    setStatus('正在翻译 Agent 元数据，请稍候…');
+    try {
+      const result = await invoke('translate_agent_frontmatter');
+      const { totalFiles, updatedFiles, skippedFiles, errors } = result;
+      const summary =
+        `🌐 Agent 翻译完成：${totalFiles} 个文件，已更新 ${updatedFiles}，` +
+        `已跳过（已是双语）${skippedFiles}` +
+        (errors.length ? `，${errors.length} 个错误` : '');
+      setStatus(summary);
+      // Show detail in response overlay
+      if (responseEl) {
+        const detailLines = (result.details || []).map(d => {
+          const icon = d.status === 'updated' ? '✅' : d.status === 'skipped' ? '⏭' : '❌';
+          const name = d.path.split('/').pop();
+          return `${icon} **${name}** — ${d.message || d.status}`;
+        });
+        responseEl.innerHTML = `<p>${summary}</p>` +
+          (detailLines.length ? `<ul>${detailLines.map(l => `<li>${l}</li>`).join('')}</ul>` : '');
+        if (responseOverlay) responseOverlay.classList.add('visible');
+      }
+      appendEventLine(`[translate_agent_frontmatter] ${summary}`);
+    } catch (err) {
+      const msg = `翻译失败: ${err}`;
+      setStatus(msg, true);
+      appendEventLine(`[translate_agent_frontmatter] ❌ ${msg}`);
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    }
   });
+
+
+  _demoStateIdx = (_demoStateIdx + 1) % STATES.length;
+  applyDemoState(_demoStateIdx);
 }());
 
 // ── 自动动作循环：每 8 秒触发下一个动作（仅在 Live2D 模型已加载后生效）──────────
