@@ -13,6 +13,22 @@
 
 ---
 
+## 🆕 最新动态 / Latest Updates
+
+### 📄 agents.md 双语翻译 | Bilingual Translation for agents.md
+
+> **已新增 `agents.md` 中英双语文档，帮助更多开发者快速理解项目 Agent 架构与编排设计。**
+>
+> **Added bilingual (Chinese/English) translation for `agents.md`, making the Agent architecture and orchestration design accessible to a wider developer audience.**
+
+项目新增了 `agents.md` 文档的完整中英双语翻译。无论是中文读者还是英文读者，都能通过这份文档快速了解项目的 Agent 编排架构、多角色协作机制、工具运行时设计，以及未来 Orchestrator 的演进方向。
+
+A full bilingual (Chinese & English) version of `agents.md` has been added to the project. Both Chinese and English readers can now quickly understand the Agent orchestration architecture, multi-persona collaboration model, tool runtime design, and the future direction of the Orchestrator through this document.
+
+<img src="docs/translate.jpg" alt="agents.md 双语翻译 | Bilingual Translation" width="720"/>
+
+---
+
 ## ✨ 项目简介
 
 AI Girls Desktop 是一个运行在 macOS 上的桌面助手项目，目标是把 **Live2D 虚拟角色表现**、**多模型 AI 接入**、**桌面级工具能力** 和 **长期记忆** 融合到一个统一体验里。它不是单纯的聊天壳子，也不只是一个会动的看板娘，而是希望逐步演化成一个接近 **VS Code 中 GitHub Copilot Chat 那种全面能力** 的桌面 AI 工作台。
